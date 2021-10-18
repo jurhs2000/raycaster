@@ -208,7 +208,7 @@ while isRunning:
 
   raycaster.render()
 
-  screen.fill(pygame.Color("black"), (0, 0, 20, 20))
+  screen.fill(pygame.Color("black"), (0, 0, 30, 20))
   screen.blit(updateFPS(), (0,0))
   clock.tick(165)
 
