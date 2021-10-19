@@ -18,11 +18,11 @@ wallColors = {
 }
 
 wallTextures = {
-  '1': pygame.image.load('textures/wall1.png'),
-  '2': pygame.image.load('textures/wall2.png'),
-  '3': pygame.image.load('textures/wall3.png'),
-  '4': pygame.image.load('textures/wall4.png'),
-  '5': pygame.image.load('textures/wall5.png'),
+  '1': pygame.image.load('textures/BIGDOOR2.png'),
+  '2': pygame.image.load('textures/BIGDOOR3.png'),
+  '3': pygame.image.load('textures/BIGDOOR4.png'),
+  '4': pygame.image.load('textures/BIGDOOR6.png'),
+  '5': pygame.image.load('textures/BIGDOOR7.png'),
   '6': pygame.image.load('textures/wall6.gif'),
 }
 
@@ -55,7 +55,7 @@ class Raycaster(object):
     texture = pygame.transform.scale(texture, (self.blockSize, self.blockSize))
     rect = texture.get_rect()
     rect = rect.move(x, y)
-    self.screen.blit(texture, rect)
+    self.mapBuffer.append((texture, rect))
 
   def drawPlayer(self, color):
     if self.player['x'] < self.width / 2:
@@ -110,10 +110,10 @@ class Raycaster(object):
           if j < len(self.map):
             if i < len(self.map[j]):
               if self.map[j][i] != ' ':
-                self.mapBuffer.append((x, y, self.map[j][i]))
-
-    for block in self.mapBuffer:
-      self.drawBlock(block[0], block[1], block[2])
+                self.drawBlock(x, y, self.map[j][i])
+    else:
+      for block in self.mapBuffer:
+        self.screen.blit(block[0], block[1])
         
     RAY_AMOUNT = 100
     self.drawPlayer(pygame.Color('black'))
@@ -163,9 +163,44 @@ def updateFPS():
   fps = font.render(fps, 1, pygame.Color('white'))
   return fps
 
+
 drawMap = True
+pause = False
+menuOpen = True
+buttonSelected = 0
 isRunning = True
-while isRunning:
+
+def menu():
+  global isRunning, menuOpen
+  menuOpen = True
+  while menuOpen:
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT:
+        isRunning = False
+        menuOpen = False
+      if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_ESCAPE:
+          menuOpen = False
+      if event.type == pygame.MOUSEBUTTONDOWN:
+        mouse_pos = pygame.mouse.get_pos()
+        # Start
+        if width / 2 - 100 < mouse_pos[0] < (width / 2 - 100) + 200 and height / 2 - 50 < mouse_pos[1] < (height / 2 - 50) + 50:
+          menuOpen = False
+        # Quit
+        if width / 2 - 100 < mouse_pos[0] < (width / 2 - 100) + 200 and height / 2 + 50 < mouse_pos[1] < (height / 2 + 50) + 50:
+          isRunning = False
+          menuOpen = False
+    screen.fill(pygame.Color('blue'))
+    pygame.draw.rect(screen, pygame.Color('white'), (width / 2 - 100, height / 2 - 50, 200, 50))
+    pygame.draw.rect(screen, pygame.Color('white'), (width / 2 - 100, height / 2 + 50, 200, 50))
+    screen.blit(font.render('Start', 1, pygame.Color('black')), (width / 2 - 50, height / 2 - 25))
+    screen.blit(font.render('Quit', 1, pygame.Color('black')), (width / 2 - 50, height / 2 + 75))
+    screen.blit(font.render('Raycaster', 1, pygame.Color('white')), (width / 2 - 50, height / 2 - 100))
+    clock.tick(60)
+    pygame.display.flip()
+
+def game():
+  global isRunning, menuOpen
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       isRunning = False
@@ -174,7 +209,7 @@ while isRunning:
       newY = raycaster.player['y']
       rads = raycaster.player['angle'] * (math.pi / 180)
       if event.key == pygame.K_ESCAPE:
-        isRunning = False
+        menuOpen = True
       elif event.key == pygame.K_UP or event.key == pygame.K_w:
         newX += math.cos(rads) * raycaster.stepSize
         newY += math.sin(rads) * raycaster.stepSize
@@ -210,7 +245,13 @@ while isRunning:
 
   screen.fill(pygame.Color("black"), (0, 0, 30, 20))
   screen.blit(updateFPS(), (0,0))
-  clock.tick(165)
+  clock.tick(240)
+
+while isRunning:
+  if menuOpen:
+    menu()
+  else:
+    game()
 
   pygame.display.update()
 
