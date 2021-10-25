@@ -24,6 +24,22 @@ wallTextures = {
   '4': pygame.image.load('textures/BIGDOOR6.png'),
   '5': pygame.image.load('textures/BIGDOOR7.png'),
   '6': pygame.image.load('textures/wall6.gif'),
+  'f': pygame.image.load('textures/wall4.png'),
+}
+
+maps = {
+  'Mapa 1': {
+    'file': 'maps/map.txt',
+    'next': 'Mapa 2',
+  },
+  'Mapa 2': {
+    'file': 'maps/map2.txt',
+    'next': 'Mapa 3',
+  },
+  'Mapa 3': {
+    'file': 'maps/map3.txt',
+    'next': 'Mapa 1',
+  },
 }
 
 class Raycaster(object):
@@ -31,8 +47,9 @@ class Raycaster(object):
     self.screen = screen
     _, _, self.width, self.height = screen.get_rect()
     self.map = []
+    self.actualMap = ''
     self.blockSize = 50
-    self.wallHeight = 50
+    self.wallHeight = self.height / 10
     self.stepSize = 10
     self.turnSize = 5
     self.maxDistance = 200
@@ -42,13 +59,21 @@ class Raycaster(object):
       'x': self.width / 4 + self.blockSize / 2,
       'y': self.height / 2 + self.blockSize / 2,
       'fov': 60,
-      'angle': 0
+      'angle': 0,
+      'speed': 0.4,
     }
 
-  def load_map(self, filename):
+  def load_map(self, mapName):
+    columns = 0
+    rows = 0
+    self.actualMap = mapName
+    filename = maps[mapName]['file']
     with open(filename, 'r') as f:
       for line in f.readlines():
         self.map.append(list(line.rstrip()))
+      columns = len(self.map[0])
+      rows = len(self.map)
+    self.blockSize = int((self.width / 2) / columns) if columns > rows else int((self.width / 2) / rows)
 
   def drawBlock(self, x, y, id):
     texture = wallTextures[id]
@@ -95,6 +120,7 @@ class Raycaster(object):
               elif hitX >= self.blockSize -1:
                 hit = self.blockSize - hitY
             hit /= self.blockSize
+            
             pygame.draw.line(self.screen, pygame.Color('white'), playerPos, (x, y))
             return d, self.map[j][i], hit
 
@@ -114,8 +140,13 @@ class Raycaster(object):
     else:
       for block in self.mapBuffer:
         self.screen.blit(block[0], block[1])
+    # map name
+    self.screen.fill(pygame.Color('black'), (width / 4 - 55, height - 25, 65, 25))
+    font = pygame.font.SysFont('Arial', 20)
+    text = font.render(self.actualMap, True, pygame.Color('white'))
+    self.screen.blit(text, (width / 4 - 50, height - 25))
         
-    RAY_AMOUNT = 100
+    RAY_AMOUNT = int((self.width / 2) / 5)
     self.drawPlayer(pygame.Color('black'))
     for column in range(RAY_AMOUNT):
       angle = self.player['angle'] - (self.player['fov'] / 2) + (self.player['fov'] * column / RAY_AMOUNT)
@@ -154,7 +185,7 @@ screen = pygame.display.set_mode((width, height), pygame.DOUBLEBUF | pygame.HWAC
 screen.set_alpha(None)
 
 raycaster = Raycaster(screen)
-raycaster.load_map('maps/map2.txt')
+raycaster.load_map('Mapa 1')
 
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("monospace", 16)
@@ -163,6 +194,38 @@ def updateFPS():
   fps = font.render(fps, 1, pygame.Color('white'))
   return fps
 
+offsetX = 0
+offsetY = height * 0.1
+focused = 0
+buttonsOrder = ['start', 'quit']
+buttons = {
+  'start': {
+    'x': width / 2 - (width * 0.1) + offsetX,
+    'y': height / 2 - (height * 0.05) + offsetY,
+    'w': width * 0.2,
+    'h': height * 0.1,
+    'text': 'Start',
+    'textPos': {
+      'x': width / 2 + offsetX,
+      'y': height / 2 - (height * 0) + offsetY
+    },
+    'color': pygame.Color('grey'),
+    'focusColor': pygame.Color('#3258e3'),
+  },
+  'quit': {
+    'x': width / 2 - (width * 0.1) + offsetX,
+    'y': height / 2 + (height * 0.15) + offsetY,
+    'w': width * 0.2,
+    'h': height * 0.1,
+    'text': 'Quit',
+    'textPos': {
+      'x': width / 2 + offsetX,
+      'y': height / 2 + (height * 0.2) + offsetY
+    },
+    'color': pygame.Color('grey'),
+    'focusColor': pygame.Color('#3258e3'),
+  }
+}
 
 drawMap = True
 pause = False
@@ -171,70 +234,126 @@ buttonSelected = 0
 isRunning = True
 
 def menu():
-  global isRunning, menuOpen
+  global isRunning, menuOpen, focused
   menuOpen = True
-  while menuOpen:
-    for event in pygame.event.get():
-      if event.type == pygame.QUIT:
-        isRunning = False
+  for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+      isRunning = False
+      menuOpen = False
+    if event.type == pygame.KEYDOWN:
+      if event.key == pygame.K_ESCAPE:
         menuOpen = False
-      if event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_ESCAPE:
-          menuOpen = False
-      if event.type == pygame.MOUSEBUTTONDOWN:
-        mouse_pos = pygame.mouse.get_pos()
-        # Start
-        if width / 2 - 100 < mouse_pos[0] < (width / 2 - 100) + 200 and height / 2 - 50 < mouse_pos[1] < (height / 2 - 50) + 50:
-          menuOpen = False
-        # Quit
-        if width / 2 - 100 < mouse_pos[0] < (width / 2 - 100) + 200 and height / 2 + 50 < mouse_pos[1] < (height / 2 + 50) + 50:
-          isRunning = False
-          menuOpen = False
-    screen.fill(pygame.Color('blue'))
-    pygame.draw.rect(screen, pygame.Color('white'), (width / 2 - 100, height / 2 - 50, 200, 50))
-    pygame.draw.rect(screen, pygame.Color('white'), (width / 2 - 100, height / 2 + 50, 200, 50))
-    screen.blit(font.render('Start', 1, pygame.Color('black')), (width / 2 - 50, height / 2 - 25))
-    screen.blit(font.render('Quit', 1, pygame.Color('black')), (width / 2 - 50, height / 2 + 75))
-    screen.blit(font.render('Raycaster', 1, pygame.Color('white')), (width / 2 - 50, height / 2 - 100))
+      if event.key == pygame.K_DOWN:
+        focused = (focused + 1) % len(buttonsOrder)
+      if event.key == pygame.K_UP:
+        focused = (focused - 1) % len(buttonsOrder)
+    if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER)):
+      mouse_pos = pygame.mouse.get_pos()
+      if (event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER)):
+        mouse_pos = (buttons[buttonsOrder[focused]]['x'] + 1, buttons[buttonsOrder[focused]]['y'] + 1)
+      for button in buttons:
+        if buttons[button]['x'] < mouse_pos[0] < buttons[button]['x'] + buttons[button]['w'] and buttons[button]['y'] < mouse_pos[1] < buttons[button]['y'] + buttons[button]['h']:
+          focused = buttonsOrder.index(button)
+          if button == 'start':
+            menuOpen = False
+          if button == 'quit':
+            isRunning = False
+            menuOpen = False
+
+    # charge images
+    bg = pygame.image.load('images/bg2.jpg')
+    bg = pygame.transform.scale(bg, (width, height))
+    screen.blit(bg, (0, 0))
+    title = pygame.image.load('images/at2.png')
+    title = pygame.transform.scale(title, (int((title.get_width() / title.get_height()) * (height * 0.3)), int(height * 0.3)))
+    title2 = pygame.image.load('images/zoom2.png')
+    title2 = pygame.transform.scale(title2, (int((title2.get_width() / title2.get_height()) * (height * 0.3)), int(height * 0.3)))
+    screen.blit(title, ((width * 0.46) - title.get_width() + offsetX, height * 0.05 + offsetY))
+    screen.blit(title2, (width * 0.46 + offsetX, height * 0.05 + offsetY))
+    # draw buttons
+    for button in buttons:
+      if focused == buttonsOrder.index(button):
+        screen.fill(buttons[button]['focusColor'], (buttons[button]['x'], buttons[button]['y'], buttons[button]['w'], buttons[button]['h']))
+      else:
+        screen.fill(buttons[button]['color'], (buttons[button]['x'], buttons[button]['y'], buttons[button]['w'], buttons[button]['h']))
+      textImage = pygame.image.load(f'images/{button}.png')
+      textImage = pygame.transform.scale(textImage, (int(textImage.get_width() / textImage.get_height()) * int(buttons[button]['h']), int(buttons[button]['h'])))
+      screen.blit(textImage, (buttons[button]['textPos']['x'] - int(textImage.get_width() / 2), buttons[button]['textPos']['y'] - int(textImage.get_height() / 2)))
+
     clock.tick(60)
-    pygame.display.flip()
+    pygame.display.update()
+
+actualMovements = []
+def movement():
+  global actualMovements
+  newX = raycaster.player['x']
+  newY = raycaster.player['y']
+  rads = raycaster.player['angle'] * (math.pi / 180)
+  i = 0
+  j = 0
+  if 'up' in actualMovements:
+    newX += math.cos(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    newY += math.sin(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    i = int((newX + math.cos(rads) * 10) / raycaster.blockSize)
+    j = int((newY + math.sin(rads) * 10) / raycaster.blockSize)
+  if 'down' in actualMovements:
+    newX -= math.cos(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    newY -= math.sin(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    i = int((newX - math.cos(rads) * 10) / raycaster.blockSize)
+    j = int((newY - math.sin(rads) * 10) / raycaster.blockSize)
+  if 'left' in actualMovements:
+    newX += math.sin(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    newY -= math.cos(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    i = int((newX + math.cos(rads) * 10) / raycaster.blockSize)
+    j = int((newY - math.sin(rads) * 10) / raycaster.blockSize)
+  if 'right' in actualMovements:
+    newX -= math.sin(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    newY += math.cos(rads) * ((265 / clock.get_fps()) * raycaster.player['speed'])
+    i = int((newX - math.cos(rads) * 10) / raycaster.blockSize)
+    j = int((newY + math.sin(rads) * 10) / raycaster.blockSize)
+  if raycaster.map[j][i] == ' ':
+    raycaster.player['x'] = newX
+    raycaster.player['y'] = newY
+  if raycaster.map[j][i] == 'f':
+    raycaster.map = []
+    raycaster.mapBuffer = []
+    raycaster.load_map(maps[raycaster.actualMap]['next'])
+    raycaster.player['x'] = width / 4 + raycaster.blockSize / 2
+    raycaster.player['y'] = height / 2 + raycaster.blockSize / 2
 
 def game():
-  global isRunning, menuOpen
+  global isRunning, menuOpen, actualMovements
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       isRunning = False
     elif event.type == pygame.KEYDOWN:
-      newX = raycaster.player['x']
-      newY = raycaster.player['y']
-      rads = raycaster.player['angle'] * (math.pi / 180)
       if event.key == pygame.K_ESCAPE:
         menuOpen = True
       elif event.key == pygame.K_UP or event.key == pygame.K_w:
-        newX += math.cos(rads) * raycaster.stepSize
-        newY += math.sin(rads) * raycaster.stepSize
+        actualMovements.append('up')
       elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-        newX -= math.cos(rads) * raycaster.stepSize
-        newY -= math.sin(rads) * raycaster.stepSize
+        actualMovements.append('down')
       elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
-        newX += math.sin(rads) * raycaster.stepSize
-        newY -= math.cos(rads) * raycaster.stepSize
+        actualMovements.append('left')
       elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-        newX -= math.sin(rads) * raycaster.stepSize
-        newY += math.cos(rads) * raycaster.stepSize
+        actualMovements.append('right')
 
-      i = int(newX / raycaster.blockSize)
-      j = int(newY / raycaster.blockSize)
-
-      if raycaster.map[j][i] == ' ':
-        raycaster.player['x'] = newX
-        raycaster.player['y'] = newY
+    elif event.type == pygame.KEYUP:
+      if event.key == pygame.K_UP or event.key == pygame.K_w:
+        actualMovements.remove('up')
+      elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+        actualMovements.remove('down')
+      elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
+        actualMovements.remove('left')
+      elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+        actualMovements.remove('right')
     
     # get mouse movement
     elif event.type == pygame.MOUSEMOTION:
       x, y = event.pos
       # player see to current mouse position
       raycaster.player['angle'] = math.atan2(y - raycaster.player['y'], x - raycaster.player['x']) * 180 / math.pi
+  movement()
 
   screen.fill((120,120,120))
   screen.fill((0,0,0), (0,0,15,15))
@@ -245,7 +364,7 @@ def game():
 
   screen.fill(pygame.Color("black"), (0, 0, 30, 20))
   screen.blit(updateFPS(), (0,0))
-  clock.tick(240)
+  clock.tick(265)
 
 while isRunning:
   if menuOpen:
