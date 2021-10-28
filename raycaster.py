@@ -32,29 +32,29 @@ enemies = [
     'id': 0,
     'x': 100,
     'y': 200,
-    'size': 50,
-    'sprite': pygame.image.load('textures/sprite1.png'),
+    'size': 40,
+    'sprite': pygame.image.load('textures/sprite1_2.png'),
   },
   {
     'id': 1,
     'x': 100,
     'y': 400,
-    'size': 50,
-    'sprite': pygame.image.load('textures/sprite2.png'),
+    'size': 40,
+    'sprite': pygame.image.load('textures/sprite2_2.png'),
   },
   {
     'id': 2,
     'x': 400,
     'y': 100,
-    'size': 50,
-    'sprite': pygame.image.load('textures/sprite3.png'),
+    'size': 40,
+    'sprite': pygame.image.load('textures/sprite3_2.png'),
   },
   {
     'id': 3,
     'x': 400,
     'y': 425,
-    'size': 50,
-    'sprite': pygame.image.load('textures/sprite4.png'),
+    'size': 40,
+    'sprite': pygame.image.load('textures/sprite4_2.png'),
   },
 ]
 
@@ -134,21 +134,27 @@ class Raycaster(object):
     fovRads = self.player['fov'] * math.pi / 180
     # punto inicial para dibujar
     startX = ((self.width * 3/4) + (spriteAngle - angleRads) * self.width / 2 / fovRads) - spriteWidth / 2
-    startY = self.height / 2 - spriteHeight / 2
+    startY = (self.height / 2 - spriteHeight / 2) + 20
 
-    #texture = pygame.transform.scale(sprite, (int(spriteWidth), int(spriteHeight)))
-    #self.screen.blit(texture, (int(startX), int(startY)))
-
-    for x in range(int(startX), int(startX + spriteWidth)):
-      for y in range(int(startY), int(startY + spriteHeight)):
-        if (self.width / 2 < x < self.width):
-          if self.zBuffer[x - int(self.width / 2)] >= spriteDist:
-            tx = (x - int(startX)) * sprite.get_width() / spriteWidth
-            ty = (y - int(startY)) * sprite.get_height() / spriteHeight
+    steps = 2 if spriteDist > 200 else 1
+    draw = False
+    for _x in range(int(startX), int(startX + spriteWidth), steps):
+      if ((self.width / 2) < _x < self.width):
+        if self.zBuffer[_x - int(self.width / 2)] >= spriteDist:
+          draw = True
+          for _y in range(int(startY), int(startY + spriteHeight)):
+            tx = (_x - int(startX)) * sprite.get_width() / spriteWidth
+            ty = (_y - int(startY)) * sprite.get_height() / spriteHeight
             pixel = sprite.get_at((int(tx), int(ty)))
             if pixel != (152,0,136,255):
-              self.screen.set_at((x, y), pixel)
-              self.zBuffer[x - int(self.width / 2)] = spriteDist
+              self.screen.set_at((_x, _y), pixel)
+              self.zBuffer[_x - int(self.width / 2)] = spriteDist
+        else:
+          draw = False
+    if draw:
+      texture = pygame.transform.scale(sprite, (int(spriteWidth), int(spriteHeight)))
+      texture.set_colorkey((152,0,136,255))
+      #self.screen.blit(texture, (int(startX), int(startY)))
 
   def castRay(self, angle):
     d = 0
