@@ -6,9 +6,6 @@
 import pygame
 import math
 
-from pygame import color
-from pygame import draw
-
 wallColors = {
   '1': pygame.Color('red'),
   '2': pygame.Color('green'),
@@ -27,49 +24,108 @@ wallTextures = {
   'f': pygame.image.load('textures/wall4.png'),
 }
 
-enemies = [
-  {
-    'id': 0,
-    'x': 100,
-    'y': 200,
-    'size': 40,
-    'sprite': pygame.image.load('textures/sprite1_2.png'),
-  },
-  {
-    'id': 1,
-    'x': 100,
-    'y': 400,
-    'size': 40,
-    'sprite': pygame.image.load('textures/sprite2_2.png'),
-  },
-  {
-    'id': 2,
-    'x': 400,
-    'y': 100,
-    'size': 40,
-    'sprite': pygame.image.load('textures/sprite3_2.png'),
-  },
-  {
-    'id': 3,
-    'x': 400,
-    'y': 425,
-    'size': 40,
-    'sprite': pygame.image.load('textures/sprite4_2.png'),
-  },
-]
-
 maps = {
   'Mapa 1': {
     'file': 'maps/map.txt',
     'next': 'Mapa 2',
+    'enemies': [
+      {
+        'id': 0,
+        'x': 33,
+        'y': 66,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite1_2.png'),
+      },
+      {
+        'id': 1,
+        'x': 33,
+        'y': 133,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite2_2.png'),
+      },
+      {
+        'id': 2,
+        'x': 133,
+        'y': 33,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite3_2.png'),
+      },
+      {
+        'id': 3,
+        'x': 133,
+        'y': 138,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite4_2.png'),
+      },
+    ]
   },
   'Mapa 2': {
     'file': 'maps/map2.txt',
     'next': 'Mapa 3',
+    'enemies': [
+      {
+        'id': 0,
+        'x': 44,
+        'y': 66,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite1_2.png'),
+      },
+      {
+        'id': 1,
+        'x': 33,
+        'y': 138,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite2_2.png'),
+      },
+      {
+        'id': 2,
+        'x': 133,
+        'y': 33,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite3_2.png'),
+      },
+      {
+        'id': 3,
+        'x': 138,
+        'y': 133,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite4_2.png'),
+      },
+    ]
   },
   'Mapa 3': {
     'file': 'maps/map3.txt',
     'next': 'Mapa 1',
+    'enemies': [
+      {
+        'id': 0,
+        'x': 33,
+        'y': 66,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite1_2.png'),
+      },
+      {
+        'id': 1,
+        'x': 53,
+        'y': 133,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite2_2.png'),
+      },
+      {
+        'id': 2,
+        'x': 133,
+        'y': 33,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite3_2.png'),
+      },
+      {
+        'id': 3,
+        'x': 138,
+        'y': 135,
+        'size': 15,
+        'sprite': pygame.image.load('textures/sprite4_2.png'),
+      },
+    ]
   },
 }
 
@@ -79,17 +135,20 @@ class Raycaster(object):
     _, _, self.width, self.height = screen.get_rect()
     self.map = []
     self.actualMap = ''
-    self.blockSize = 50
-    self.wallHeight = self.height / 10
+    self.blockSize = 0
+    self.wallHeight = self.height / 30
     self.stepSize = 10
     self.turnSize = 5
-    self.maxDistance = 200
+    self.maxDistance = 1
     self.mapBuffer = []
-    self.zBuffer = [float('inf') for z in range(int(self.width / 2))]
+    self.linesToDraw = []
+    self.zBuffer = [float('inf') for z in range(self.width)]
     self.scaledTextures = {}
+    self.hitEnemy = None
+    self.enemies = []
     self.player = {
-      'x': self.width / 4 + self.blockSize / 2,
-      'y': self.height / 2 + self.blockSize / 2,
+      'x': 25,
+      'y': 25,
       'fov': 60,
       'angle': 0,
       'speed': 0.4,
@@ -99,13 +158,21 @@ class Raycaster(object):
     columns = 0
     rows = 0
     self.actualMap = mapName
+    self.map = []
     filename = maps[mapName]['file']
+    self.enemies = []
+    self.mapBuffer = []
+    raycaster.player['x'] = 25
+    raycaster.player['y'] = 25
+    raycaster.player['angle'] = 0
+    for enemy in maps[mapName]['enemies']:
+      self.enemies.append(enemy)
     with open(filename, 'r') as f:
       for line in f.readlines():
         self.map.append(list(line.rstrip()))
       columns = len(self.map[0])
       rows = len(self.map)
-    self.blockSize = int((self.width / 2) / columns) if columns > rows else int((self.width / 2) / rows)
+    self.blockSize = int((self.width / 6) / columns) if columns > rows else int((self.width / 6) / rows)
 
   def drawBlock(self, x, y, id):
     texture = wallTextures[id]
@@ -120,41 +187,52 @@ class Raycaster(object):
       self.screen.fill(color, rect)
 
   def drawIcon(self):
-    for enemy in enemies:
+    for enemy in self.enemies:
       rect = (enemy['x'] - 3, enemy['y'] - 3, 6, 6)
       self.screen.fill(pygame.Color('red'), rect)
 
-  def drawSprite(self, x, y, sprite, size):
-    spriteDist = math.sqrt((x - self.player['x']) ** 2 + (y - self.player['y']) ** 2)
-    spriteAngle = math.atan2(y - self.player['y'], x - self.player['x'])
+  def drawSprite(self, id, x, y, sprite, size):
+    spriteDist = ((self.player['x'] - x) ** 2 + (self.player['y'] - y) ** 2) ** 0.5
+    spriteAngle = math.atan2(y - self.player['y'], x - self.player['x']) * 180 / math.pi
     aspectRatio = sprite.get_width() / sprite.get_height()
-    spriteHeight = self.height / spriteDist * size
+    spriteHeight = (self.height / spriteDist) * size
     spriteWidth = spriteHeight * aspectRatio
-    angleRads = self.player['angle'] * math.pi / 180
-    fovRads = self.player['fov'] * math.pi / 180
     # punto inicial para dibujar
-    startX = ((self.width * 3/4) + (spriteAngle - angleRads) * self.width / 2 / fovRads) - spriteWidth / 2
-    startY = (self.height / 2 - spriteHeight / 2) + 20
+    angleDif = (spriteAngle - self.player['angle']) % 360
+    angleDif = (angleDif - 360) if angleDif > 180 else angleDif
+    startX = angleDif * self.width / self.player['fov'] 
+    startX += (self.width /  2) - (spriteWidth  / 2)
+    startY = (self.height /  2) - (spriteHeight / 2)
+    startX = int(startX)
+    startY = int(startY)
 
     steps = 2 if spriteDist > 200 else 1
     draw = False
     for _x in range(int(startX), int(startX + spriteWidth), steps):
-      if ((self.width / 2) < _x < self.width):
-        if self.zBuffer[_x - int(self.width / 2)] >= spriteDist:
-          draw = True
-          for _y in range(int(startY), int(startY + spriteHeight)):
-            tx = (_x - int(startX)) * sprite.get_width() / spriteWidth
-            ty = (_y - int(startY)) * sprite.get_height() / spriteHeight
-            pixel = sprite.get_at((int(tx), int(ty)))
-            if pixel != (152,0,136,255):
-              self.screen.set_at((_x, _y), pixel)
-              self.zBuffer[_x - int(self.width / 2)] = spriteDist
-        else:
+      if (0 < _x < self.width) and self.zBuffer[_x] >= spriteDist:
+        if spriteDist > 30:
           draw = False
+          for _y in range(startY, startY + int(spriteHeight)):
+            tx = int((_x - startX) * sprite.get_width() / spriteWidth )
+            ty = int((_y - startY) * sprite.get_height() / spriteHeight )
+            texColor = sprite.get_at((int(tx), int(ty)))
+            if texColor != (152, 0, 136, 255) and texColor[3] > 128:
+              self.screen.set_at((_x, _y + 20), texColor)
+              if _y == self.height / 2:
+                self.zBuffer[_x] = spriteDist
+                if _x == self.width / 2:
+                  self.hitEnemy = id
+        else:
+          draw = True
+          for _y in range(startY, startY + int(spriteHeight)):
+            if _y == self.height / 2:
+              self.zBuffer[_x] = spriteDist
+              if _x == self.width / 2:
+                self.hitEnemy = id
     if draw:
       texture = pygame.transform.scale(sprite, (int(spriteWidth), int(spriteHeight)))
       texture.set_colorkey((152,0,136,255))
-      #self.screen.blit(texture, (int(startX), int(startY)))
+      self.screen.blit(texture, (int(startX), int(startY) + 20))
 
   def castRay(self, angle):
     d = 0
@@ -189,16 +267,57 @@ class Raycaster(object):
               elif hitX >= self.blockSize -1:
                 hit = self.blockSize - hitY
             hit /= self.blockSize
-            
-            pygame.draw.line(self.screen, pygame.Color('white'), playerPos, (x, y))
+            self.linesToDraw.append((playerPos, (x, y)))
             return d, self.map[j][i], hit
 
   def render(self):
-    halfWidth = int(self.width / 2)
     halfHeight = int(self.height / 2)
+    RAY_AMOUNT = int(self.width / 5) # 5 = divisor de cantidad de rayos para optimizacion
+    for column in range(RAY_AMOUNT):
+      angle = self.player['angle'] - (self.player['fov'] / 2) + (self.player['fov'] * column / RAY_AMOUNT)
+      d, id, tx = self.castRay(angle)
+
+      rayWidth = int((1 / RAY_AMOUNT) * self.width)
+      for i in range(rayWidth):
+        self.zBuffer[column * rayWidth + i] = d
+      x = int((column / RAY_AMOUNT) * self.width)
+      # perceived height
+      h = self.height / (d * math.cos((angle - self.player["angle"]) * math.pi / 180)) * self.wallHeight
+      y = int(halfHeight - h / 2)
+
+      color_k = (1 - min(1, d / self.maxDistance)) * 255
+      texture = wallTextures[id]
+      idTb = hash(id * int(h))
+      if idTb not in self.scaledTextures:
+        self.scaledTextures[idTb] = pygame.transform.scale(texture, (texture.get_width() * rayWidth, int(h)))
+      texture = self.scaledTextures[idTb]
+      tx = int(tx * texture.get_width())
+
+      self.screen.blit(texture, (x, y), (tx, 0, rayWidth, texture.get_height()))
+      s = pygame.Surface((rayWidth, h))
+      s.set_alpha(d)
+      s.fill((color_k, color_k, color_k))
+      self.screen.blit(s, (x, y))
+
+    # enemies
+    self.hitEnemy = None
+    for enemy in self.enemies:
+      self.drawSprite(enemy['id'], enemy['x'], enemy['y'], enemy['sprite'], enemy['size'])
+
+    sightRect = (int(self.width / 2 - 2), int(self.height / 2 - 2), 5,5 )
+    self.screen.fill(pygame.Color('red') if self.hitEnemy != None else pygame.Color('white'), sightRect)
+
+    # MAP
+    self.screen.fill(pygame.Color('black'), (0, 0, self.width / 6, self.width / 6))
+    for line in self.linesToDraw:
+      pygame.draw.line(self.screen, pygame.Color('white'), line[0], line[1])
+    self.linesToDraw = []
+    self.drawPlayer(pygame.Color(0, 200, 255))
+    self.drawIcon()
+    mapWidth = int(self.width / 6)
     if len(self.mapBuffer) == 0:
-      for x in range(0, halfWidth, self.blockSize):
-        for y in range(0, self.height, self.blockSize):
+      for x in range(0, mapWidth, self.blockSize):
+        for y in range(0, mapWidth, self.blockSize):
           i = int(x / self.blockSize)
           j = int(y / self.blockSize)
 
@@ -210,50 +329,13 @@ class Raycaster(object):
       for block in self.mapBuffer:
         self.screen.blit(block[0], block[1])
     # map name
-    self.screen.fill(pygame.Color('black'), (width / 4 - 55, height - 25, 65, 25))
+    self.screen.fill(pygame.Color('black'), ((width / 6) / 2 - 35, (width / 6), 65, 25))
     font = pygame.font.SysFont('Arial', 20)
     text = font.render(self.actualMap, True, pygame.Color('white'))
-    self.screen.blit(text, (width / 4 - 50, height - 25))
-        
-    RAY_AMOUNT = int((self.width / 2) / 5)
-    self.drawPlayer(pygame.Color('black'))
-    self.drawIcon()
-    for column in range(RAY_AMOUNT):
-      angle = self.player['angle'] - (self.player['fov'] / 2) + (self.player['fov'] * column / RAY_AMOUNT)
-      d, id, tx = self.castRay(angle)
-
-      rayWidth = int((1 / RAY_AMOUNT) * halfWidth)
-      for i in range(rayWidth):
-        self.zBuffer[column * rayWidth + i] = d
-      x = halfWidth + int((column / RAY_AMOUNT) * halfWidth)
-      # perceived height
-      h = self.height / (d * math.cos((angle - self.player["angle"]) * math.pi / 180)) * self.wallHeight
-      y = int(halfHeight - h / 2)
-
-      color_k = (1 - min(1, d / self.maxDistance)) * 255
-      texture = wallTextures[id]
-      idTb = hash(id * int(h))
-      if idTb not in self.scaledTextures:
-        self.scaledTextures[idTb] = pygame.transform.scale(texture, (texture.get_width() * rayWidth, int(h)))
-      texture = self.scaledTextures[idTb]
-      #texture.fill((color_k, color_k, color_k), special_flags=pygame.BLEND_MULT) # too slow
-      tx = int(tx * texture.get_width())
-
-      self.screen.blit(texture, (x, y), (tx, 0, rayWidth, texture.get_height()))
-      s = pygame.Surface((rayWidth, h))
-      s.set_alpha(d / 2)
-      s.fill((color_k, color_k, color_k))
-      self.screen.blit(s, (x, y))
-
-    # enemies
-    for enemy in enemies:
-      self.drawSprite(enemy['x'], enemy['y'], enemy['sprite'], enemy['size'])
-
-    # Column
-    self.screen.fill(pygame.Color('black'), (halfWidth - 2, 0, 4, self.height))
+    self.screen.blit(text, ((width / 6) / 2 - 30, (width / 6)))
 
 width = 1000
-height = 500
+height = 600
 
 pygame.init()
 
@@ -273,9 +355,9 @@ def updateFPS():
 offsetX = 0
 offsetY = height * 0.1
 focused = 0
-buttonsOrder = ['start', 'quit']
-buttons = {
-  'start': {
+buttonsOrder = ['1', '2']
+buttonsMenu = {
+  '1': {
     'x': width / 2 - (width * 0.1) + offsetX,
     'y': height / 2 - (height * 0.05) + offsetY,
     'w': width * 0.2,
@@ -288,12 +370,40 @@ buttons = {
     'color': pygame.Color('grey'),
     'focusColor': pygame.Color('#3258e3'),
   },
-  'quit': {
+  '2': {
     'x': width / 2 - (width * 0.1) + offsetX,
     'y': height / 2 + (height * 0.15) + offsetY,
     'w': width * 0.2,
     'h': height * 0.1,
     'text': 'Quit',
+    'textPos': {
+      'x': width / 2 + offsetX,
+      'y': height / 2 + (height * 0.2) + offsetY
+    },
+    'color': pygame.Color('grey'),
+    'focusColor': pygame.Color('#3258e3'),
+  }
+}
+buttonsPause = {
+  '1': {
+    'x': width / 2 - (width * 0.15) + offsetX,
+    'y': height / 2 - (height * 0.05) + offsetY,
+    'w': width * 0.3,
+    'h': height * 0.08,
+    'text': 'Continue',
+    'textPos': {
+      'x': width / 2 + offsetX,
+      'y': height / 2 - (height * 0) + offsetY
+    },
+    'color': pygame.Color('grey'),
+    'focusColor': pygame.Color('#3258e3'),
+  },
+  '2': {
+    'x': width / 2 - (width * 0.15) + offsetX,
+    'y': height / 2 + (height * 0.15) + offsetY,
+    'w': width * 0.3,
+    'h': height * 0.08,
+    'text': 'Restart',
     'textPos': {
       'x': width / 2 + offsetX,
       'y': height / 2 + (height * 0.2) + offsetY
@@ -311,14 +421,16 @@ buttonSelected = 0
 isRunning = True
 
 def menu():
-  global isRunning, menuOpen, focused
+  global isRunning, menuOpen, focused, pause, isPlaying
   menuOpen = True
+  if pause:
+    pygame.mixer.music.pause()
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       isRunning = False
       menuOpen = False
     if event.type == pygame.KEYDOWN:
-      if event.key == pygame.K_ESCAPE:
+      if event.key == pygame.K_ESCAPE and pause:
         menuOpen = False
       if event.key == pygame.K_DOWN:
         focused = (focused + 1) % len(buttonsOrder)
@@ -326,16 +438,27 @@ def menu():
         focused = (focused - 1) % len(buttonsOrder)
     if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER)):
       mouse_pos = pygame.mouse.get_pos()
+      buttons = buttonsPause if pause else buttonsMenu
       if (event.type == pygame.KEYDOWN and (event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER)):
         mouse_pos = (buttons[buttonsOrder[focused]]['x'] + 1, buttons[buttonsOrder[focused]]['y'] + 1)
       for button in buttons:
         if buttons[button]['x'] < mouse_pos[0] < buttons[button]['x'] + buttons[button]['w'] and buttons[button]['y'] < mouse_pos[1] < buttons[button]['y'] + buttons[button]['h']:
           focused = buttonsOrder.index(button)
-          if button == 'start':
+          if buttons[button]['text'] == 'Start':
             menuOpen = False
-          if button == 'quit':
+            raycaster.load_map('Mapa 1')
+          if buttons[button]['text'] == 'Quit':
             isRunning = False
             menuOpen = False
+          if buttons[button]['text'] == 'Continue':
+            pause = False
+            menuOpen = False
+          if buttons[button]['text'] == 'Restart':
+            pause = False
+            menuOpen = True
+            pygame.mixer.music.load('sounds/Awakening.mp3')
+            pygame.mixer.music.play(-1)
+            isPlaying = False
 
     # charge images
     bg = pygame.image.load('images/bg2.jpg')
@@ -348,12 +471,14 @@ def menu():
     screen.blit(title, ((width * 0.46) - title.get_width() + offsetX, height * 0.05 + offsetY))
     screen.blit(title2, (width * 0.46 + offsetX, height * 0.05 + offsetY))
     # draw buttons
+    buttons = buttonsPause if pause else buttonsMenu
     for button in buttons:
       if focused == buttonsOrder.index(button):
         screen.fill(buttons[button]['focusColor'], (buttons[button]['x'], buttons[button]['y'], buttons[button]['w'], buttons[button]['h']))
       else:
         screen.fill(buttons[button]['color'], (buttons[button]['x'], buttons[button]['y'], buttons[button]['w'], buttons[button]['h']))
-      textImage = pygame.image.load(f'images/{button}.png')
+      text = buttons[button]['text']
+      textImage = pygame.image.load(f'images/{text}.png')
       textImage = pygame.transform.scale(textImage, (int(textImage.get_width() / textImage.get_height()) * int(buttons[button]['h']), int(buttons[button]['h'])))
       screen.blit(textImage, (buttons[button]['textPos']['x'] - int(textImage.get_width() / 2), buttons[button]['textPos']['y'] - int(textImage.get_height() / 2)))
 
@@ -362,7 +487,7 @@ def menu():
 
 actualMovements = []
 def movement():
-  global actualMovements
+  global actualMovements, passSound
   newX = raycaster.player['x']
   newY = raycaster.player['y']
   rads = raycaster.player['angle'] * (math.pi / 180)
@@ -395,17 +520,38 @@ def movement():
     raycaster.map = []
     raycaster.mapBuffer = []
     raycaster.load_map(maps[raycaster.actualMap]['next'])
-    raycaster.player['x'] = width / 4 + raycaster.blockSize / 2
-    raycaster.player['y'] = height / 2 + raycaster.blockSize / 2
+    passSound.play()
 
+startRotate = False
+canRotate = False
+lastMousePos = (0, 0)
+lastAngle = 0
+shotSound = pygame.mixer.Sound('sounds/shot.mp3')
+hitSound = pygame.mixer.Sound('sounds/hit.wav')
+passSound = pygame.mixer.Sound('sounds/door.wav')
+pygame.mixer.music.load('sounds/Awakening.mp3')
+isPlaying = False
 def game():
-  global isRunning, menuOpen, actualMovements, mousePos
+  global isRunning, menuOpen, actualMovements, mousePos, canRotate, lastMousePos, lastAngle, startRotate, pause, shotSound, isPlaying, hitSound
+  pygame.mixer.music.unpause()
+  if not isPlaying:
+    pygame.mixer.music.load('sounds/12.mp3')
+    pygame.mixer.music.play(-1)
+    isPlaying = True
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       isRunning = False
     elif event.type == pygame.KEYDOWN:
       if event.key == pygame.K_ESCAPE:
         menuOpen = True
+        pause = True
+      elif event.key == pygame.K_SPACE:
+        shotSound.play()
+        if raycaster.hitEnemy != None:
+          for enemy in maps[raycaster.actualMap]['enemies']:
+            if enemy['id'] == raycaster.hitEnemy:
+              raycaster.enemies.pop(raycaster.enemies.index(enemy))
+              hitSound.play()
       elif event.key == pygame.K_UP or event.key == pygame.K_w:
         actualMovements.append('up')
       elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
@@ -426,16 +572,26 @@ def game():
         actualMovements.remove('right')
     
     # get mouse movement
-    elif event.type == pygame.MOUSEMOTION:
+    elif event.type == pygame.MOUSEBUTTONDOWN:
+      startRotate = True
+      lastMousePos = pygame.mouse.get_pos()
+      lastAngle = raycaster.player['angle']
+    elif event.type == pygame.MOUSEBUTTONUP:
+      canRotate = False
+      startRotate = False
+    elif event.type == pygame.MOUSEMOTION and startRotate:
+      canRotate = True
       mousePos = event.pos
       # player see to current mouse position
   movement()
-  raycaster.player['angle'] = math.atan2(mousePos[1] - raycaster.player['y'], mousePos[0] - raycaster.player['x']) * 180 / math.pi
+  # player rotates horizontally to current mouse position
+  if canRotate:
+    raycaster.player['angle'] = lastAngle + (mousePos[0] - lastMousePos[0]) * (math.pi / 180) * 3
 
   screen.fill((120,120,120))
   screen.fill((0,0,0), (0,0,15,15))
-  screen.fill(pygame.Color("brown"), (int(width / 2), 0, int(width / 2), int(height / 2)))
-  screen.fill(pygame.Color("dimgray"), (int(width / 2), int(height / 2), int(width / 2), int(height / 2)))
+  screen.fill(pygame.Color("brown"), (0, 0, width, int(height / 2)))
+  screen.fill(pygame.Color("dimgray"), (0, int(height / 2), width, int(height / 2)))
 
   raycaster.render()
 
@@ -443,6 +599,7 @@ def game():
   screen.blit(updateFPS(), (0,0))
   clock.tick(265)
 
+pygame.mixer.music.play(-1)
 while isRunning:
   if menuOpen:
     menu()
